@@ -426,6 +426,15 @@ have that yet so I'm not going to make it the default instruction here yet.
 for Ubuntu, and in particular Ubuntu on WSL, that may make things easier:
   <https://github.com/daddyparodz/AutoDeOldifyLocal>
 
+
+**Codex Install:** Use the provided `install.codex.sh` when running inside the Codex environment:
+
+```console
+./install.codex.sh
+```
+
+This script calls `install.ubuntu.sh` to perform the regular Ubuntu setup and then applies Codex-specific proxy configuration. Run `install.ubuntu.sh` directly if no proxy configuration is required.
+
 #### Note on test_images Folder
 
 The images in the `test_images` folder have been removed because they were using
