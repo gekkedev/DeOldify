@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
+SCRIPT_DIR="$(dirname "$0")"
+
+# Ensure the desired Python version is installed
+"${SCRIPT_DIR}/install-python3.10.sh"
+
 # loosely copied from https://github.com/daddyparodz/AutoDeOldifyLocal
 # needs adaptions to be working on Linux without the user being a pytorch veteran
 # tested in a Ubuntu 23.04 context w/ Codex
