@@ -10,7 +10,7 @@ SCRIPT_DIR="$(dirname "$0")"
 # Run the generic installation first
 "${SCRIPT_DIR}/install.ubuntu.sh"
 
-# Apply Codex proxy certificate settings if provided
+# Apply Codex proxy certificate settings if provided (to circumvent Conda SSL issues)
 if [ -n "${CODEX_PROXY_CERT}" ]; then
   ~/miniconda3/bin/conda config --set ssl_verify "${CODEX_PROXY_CERT}"
 fi
