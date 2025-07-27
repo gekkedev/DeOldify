@@ -19,7 +19,7 @@ echo "Setting Python 3.10 as the default python3 interpreter..."
 sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
 
 echo "You can now choose your default python3 version manually if needed:"
-sudo update-alternatives --config python3
+sudo update-alternatives --set python3 /usr/bin/python3.10
 
 echo "Checking Python version..."
 python3 --version
