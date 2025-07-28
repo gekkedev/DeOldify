@@ -2,6 +2,12 @@
 
 set -e
 
+# Exit early if the desired version is already the default.
+if python3 --version 2>/dev/null | grep -q '^Python 3\.10'; then
+    echo "Python 3.10 already installed. Skipping installation."
+    exit 0
+fi
+
 # Script to install Python 3.10 on Ubuntu systems
 
 echo "Updating system and installing prerequisites..."
