@@ -7,7 +7,7 @@ SCRIPT_DIR="$(dirname "$0")"
 "${SCRIPT_DIR}/install-python3.10.sh"
 
 # loosely copied from https://github.com/daddyparodz/AutoDeOldifyLocal
-# needs adaptions to be working on Linux without the user being a pytorch veteran
+# needs adaptations to work on Linux without the user being a pytorch veteran
 # tested in a Ubuntu 23.04 context w/ Codex
 
 # Install dependencies for DeOldify on Ubuntu
@@ -31,7 +31,8 @@ rm ~/miniconda3/installer.sh
 
 # Initialize conda and activate the environment
 ~/miniconda3/bin/conda init
-source ~/.bashrc
+#source ~/.bashrc
+bash
 ~/miniconda3/bin/conda activate deoldify
 
 # Generate a Jupyter configuration
