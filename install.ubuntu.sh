@@ -19,13 +19,18 @@ sudo apt update # so that ffmpeg can even be found
 sudo apt install -y ffmpeg curl git jupyter-core
 
 
-# Install Miniconda
-mkdir -p ~/miniconda3
-wget https://repo.anaconda.com/miniconda/Miniconda3-py310_25.5.1-1-Linux-x86_64.sh -O ~/miniconda3/installer.sh
-#wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/installer.sh # latest installer
-# version frozen intentionally for compat; occasionally check for minor/patch updates here: https://repo.anaconda.com/miniconda/
-bash ~/miniconda3/installer.sh -b -u -p ~/miniconda3
-rm ~/miniconda3/installer.sh
+# Install Miniconda (if not already present)
+if [ -x "$HOME/miniconda3/bin/conda" ]; then
+    echo "Miniconda already installed at ~/miniconda3. Skipping download and install."
+else
+    echo "Miniconda not found. Downloading and installing..."
+    mkdir -p ~/miniconda3
+    wget https://repo.anaconda.com/miniconda/Miniconda3-py310_25.5.1-1-Linux-x86_64.sh -O ~/miniconda3/installer.sh
+    #wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/installer.sh # latest installer
+    # version frozen intentionally for compat; occasionally check for minor/patch updates here: https://repo.anaconda.com/miniconda/
+    bash ~/miniconda3/installer.sh -b -u -p ~/miniconda3
+    rm ~/miniconda3/installer.sh
+fi
 
 # Create the conda environment
 ~/miniconda3/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
