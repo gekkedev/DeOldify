@@ -10,9 +10,6 @@ SCRIPT_DIR="$(dirname "$0")"
 # Run the generic installation first
 "${SCRIPT_DIR}/install.ubuntu.sh"
 
-# Just in case, attempt to resolve APT issues related to Python
-"${SCRIPT_DIR}/fix-apt-python.sh"
-
 # Apply Codex proxy certificate settings if provided (to circumvent Conda SSL issues)
 if [ -n "${CODEX_PROXY_CERT}" ]; then
   ~/miniconda3/bin/conda config --set ssl_verify "${CODEX_PROXY_CERT}"

@@ -6,6 +6,9 @@ SCRIPT_DIR="$(dirname "$0")"
 # Ensure the desired Python version is installed
 "${SCRIPT_DIR}/install-python3.10.sh"
 
+# Just in case, attempt to resolve APT issues related to Python
+"${SCRIPT_DIR}/fix-apt-python.sh"
+
 # loosely copied from https://github.com/daddyparodz/AutoDeOldifyLocal
 # needs adaptations to work on Linux without the user being a pytorch veteran
 # tested in a Ubuntu 23.04 context w/ Codex
