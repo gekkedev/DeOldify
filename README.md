@@ -408,6 +408,10 @@ cd DeOldify
 conda env create -f environment.yml
 ```
 
+This project is currently built against PyTorch 1.11.0 which does not
+support NumPy 2.x. If you install the environment manually ensure that
+`numpy` is kept below version 2.
+
 Then start running with these commands:
 
 ```console

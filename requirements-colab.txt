@@ -1,4 +1,5 @@
 fastai==1.0.60
+numpy<2
 tensorboardX>=1.6
 ffmpeg-python
 yt-dlp
