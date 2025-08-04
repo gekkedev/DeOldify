@@ -1,0 +1,12 @@
+# Ignore Git metadata and build artifacts
+.git
+__pycache__
+*.pyc
+
+# Ignore large or generated directories
+resource_images
+test_images
+models
+
+# Exclude notebooks to reduce image size
+*.ipynb
