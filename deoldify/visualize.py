@@ -261,6 +261,11 @@ class VideoColorizer:
         bwframes_folder = self.bwframes_root / (source_path.stem)
         bwframe_path_template = str(bwframes_folder / '%5d.jpg')
         bwframes_folder.mkdir(parents=True, exist_ok=True)
+
+        # Skip extraction when frames already exist so interrupted runs can resume.
+        if any(bwframes_folder.glob('*.jpg')):
+            return
+
         self._purge_images(bwframes_folder)
 
         process = (
@@ -280,7 +285,7 @@ class VideoColorizer:
             logging.error('stderr:' + e.stderr.decode('UTF-8'))
             raise e
         except Exception as e:
-            logging.error('Errror while extracting raw frames from source video.  Details: {0}'.format(e), exc_info=True)   
+            logging.error('Errror while extracting raw frames from source video.  Details: {0}'.format(e), exc_info=True)
             raise e
 
     def _colorize_raw_frames(
@@ -289,10 +294,13 @@ class VideoColorizer:
     ):
         colorframes_folder = self.colorframes_root / (source_path.stem)
         colorframes_folder.mkdir(parents=True, exist_ok=True)
-        self._purge_images(colorframes_folder)
+        # Keep previously colored frames so processing can resume after interruption.
+        existing_color_frames = {f.name for f in colorframes_folder.glob('*.jpg')}
         bwframes_folder = self.bwframes_root / (source_path.stem)
 
-        for img in progress_bar(os.listdir(str(bwframes_folder))):
+        for img in progress_bar(sorted(os.listdir(str(bwframes_folder)))):
+            if img in existing_color_frames:
+                continue  # Skip frames that were already colorized
             img_path = bwframes_folder / img
 
             if os.path.isfile(str(img_path)):
