@@ -24,20 +24,40 @@ source_url = None
 
 # read and process the entire video folder
 import os
+import subprocess
+
 folder_path = 'video/source'
 result_path = None
 for file_name in os.listdir(folder_path):
     file_path = os.path.join(folder_path, file_name)
 
-    # Skip if not a file or not mp4 (uncertain if other formats are supported)
-    if not os.path.isfile(file_path) or not file_name.lower().endswith('.mp4'):
-        print(f"Skipping: {file_name} (not a valid mp4 file)")
+    # Skip if it's not a file
+    if not os.path.isfile(file_path):
+        print(f"Skipping: {file_name} (not a file)")
         continue
 
-    print(f"Processing: {file_name}")
-    if source_url is None:
-        result_path = colorizer.colorize_from_file_name(file_name, render_factor=render_factor)
-    else:
-        result_path = colorizer.colorize_from_url(source_url, file_name, render_factor=render_factor)
+    ext = os.path.splitext(file_name)[1].lower()
 
-    print(f"Processed: {file_name} → {result_path}")
+    # Convert non-mp4 files to mp4 using ffmpeg's stream copy for lossless re-containerization
+    if ext != '.mp4':
+        mp4_name = os.path.splitext(file_name)[0] + '.mp4'
+        mp4_path = os.path.join(folder_path, mp4_name)
+        cmd = ['ffmpeg', '-y', '-i', file_path, '-c', 'copy', mp4_path]
+        print(f"Converting {file_name} → {mp4_name} (lossless stream copy)")
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode != 0:
+            # Provide ffmpeg's stderr for easier debugging when conversion fails
+            print(f"Failed to convert {file_name}: {result.stderr.decode('utf-8')}")
+            continue
+        file_name_to_process = mp4_name
+    else:
+        file_name_to_process = file_name
+
+    print(f"Processing: {file_name_to_process}")
+    if source_url is None:
+        result_path = colorizer.colorize_from_file_name(file_name_to_process, render_factor=render_factor)
+    else:
+        result_path = colorizer.colorize_from_url(source_url, file_name_to_process, render_factor=render_factor)
+
+    # Keeping track of successful processing for logging purposes
+    print(f"Processed: {file_name_to_process} → {result_path}")
