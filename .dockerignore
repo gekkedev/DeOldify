@@ -1,12 +1,14 @@
-# Ignore Git metadata and build artifacts
+# Ignore Git(&hub) metadata and build artifacts
 .git
+.github
+.gitignore
 __pycache__
 *.pyc
 
-# Ignore large or generated directories
-resource_images
-test_images
-models
+Dockerfile
+*.sh
+LICENSE
+README.md
 
-# Exclude notebooks to reduce image size
+# Exclude Jupyter notebooks
 *.ipynb
