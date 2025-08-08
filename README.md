@@ -584,6 +584,7 @@ docker run -it -v $(pwd):/app deoldify python VideoColorizer.py
 
 ## Roadmap
 
+- skip files that were already colorized
 - example notebooks for new architectures and training recipes.
 - continue aborted colorizations (in case of a power outage or whatever else)
 - ONNX exporter w/ `torch-directml`
