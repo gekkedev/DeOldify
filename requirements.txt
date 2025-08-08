@@ -1,10 +1,15 @@
+numpy>=1.21,<1.24
+
 wandb
 fastai==1.0.60
 tensorboardX>=1.6
-ffmpeg
-ffmpeg-python
+
+# ffmpeg excluded because we'll need python binaries that were compiled **with** the desired --enable-libx264 flag
+#ffmpeg
+ffmpeg-python # only the wrapper
+
 yt-dlp
-jupyterlab
+#jupyterlab # TODO: separate jupyter lab dependencies from CLI dependencies
 opencv-python>=4.2.0.32
 Pillow==9.3.0
 --extra-index-url https://download.pytorch.org/whl/cu113

@@ -53,6 +53,8 @@ Get more updates on [Twitter
   - [Easiest Approach](#easiest-approach)
   - [Your Own Machine](#your-own-machine-not-as-easy)
 - [Pretrained Weights](#pretrained-weights)
+- [Docker](#docker)
+- [Roadmap](#roadmap)
 
 ## About DeOldify
 
@@ -548,3 +550,41 @@ not going to help. It's simply not in our interest to do that. We have bills to
 pay, after all. And if you're asking for help on something that can already be
 derived from the documentation or code?  That's simply annoying, and we're not
 going to pretend to be ok with that.
+
+## Docker / stable CLI
+
+You can run DeOldify in a containerized environment. This will also work on Windows, but likely with limited hardware acceleration.
+
+### Build process
+Build the docker image from the `docker` folder using the build script relevant for your OS:
+```bash
+cd docker
+# Linux:
+./build.sh
+# Windows:
+./build.bat
+```
+
+### Colorize!
+Colorize videos (image support not yet implemented for Docker) with GPU access:
+
+```bash
+docker run --gpus all --rm -v ${PWD}:/app/video/source deoldify python VideoColorizer.py
+```
+If your device doesn't support CUDA and you run into start-up issues related to your GPU, remove the `--gpus all` argument.
+
+This example mounts the current directory into the container and runs the video colorizer script on all compatible videos (MP4) in the `source` folder. Adjust the command for image colorization or other workflows
+as needed.
+
+Interactive session for debugging, development, edge cases, etc.:
+```bash
+docker run -it -v $(pwd):/app deoldify python VideoColorizer.py
+```
+
+
+## Roadmap
+
+- example notebooks for new architectures and training recipes.
+- continue aborted colorizations (in case of a power outage or whatever else)
+- ONNX exporter w/ `torch-directml`
+

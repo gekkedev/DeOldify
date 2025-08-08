@@ -1,0 +1,14 @@
+# Ignore Git(&hub) metadata and build artifacts
+.git
+.github
+.gitignore
+__pycache__
+*.pyc
+
+Dockerfile
+*.sh
+LICENSE
+README.md
+
+# Exclude Jupyter notebooks
+*.ipynb
