@@ -566,10 +566,10 @@ cd docker
 ```
 
 ### Colorize!
-Colorize videos (image support not yet implemented for Docker) with GPU access:
+To colorize videos (image support not yet implemented for Docker) with GPU access, create an empty folder and launch the following command from it. The input videos must be in a subfolder called `source`.
 
 ```bash
-docker run --gpus all --rm -v ${PWD}:/app/video/source deoldify python VideoColorizer.py
+docker run --gpus all --rm -v ${PWD}:/app/video deoldify python VideoColorizer.py
 ```
 If your device doesn't support CUDA and you run into start-up issues related to your GPU, remove the `--gpus all` argument.
 
@@ -578,9 +578,9 @@ as needed.
 
 Interactive session for debugging, development, edge cases, etc.:
 ```bash
-docker run -it -v $(pwd):/app deoldify python VideoColorizer.py
+docker run -it -v $(pwd):/app/video deoldify python VideoColorizer.py
 ```
-
+Also good for mounting the source code to achieve faster dev iterations.
 
 ## Roadmap
 
