@@ -261,10 +261,14 @@ class VideoColorizer:
         bwframes_folder = self.bwframes_root / (source_path.stem)
         bwframe_path_template = str(bwframes_folder / '%5d.jpg')
         bwframes_folder.mkdir(parents=True, exist_ok=True)
+        colorframes_folder = self.colorframes_root / (source_path.stem)
 
-        # Skip extraction when frames already exist so interrupted runs can resume.
-        if any(bwframes_folder.glob('*.jpg')):
-            return
+        # Skip extraction when B&W frames already exist so interrupted runs can resume.
+        # The assumption that **all** B&W frames were already extracted is derived from the existence of any colored frames, indicating that the B&W extraction was completed.
+        if any(bwframes_folder.glob('*.jpg')) and any(colorframes_folder.glob('*.jpg')):
+            return print(
+                f"Skipping extraction of B&W frames (already existing)."
+            )
 
         self._purge_images(bwframes_folder)
 
