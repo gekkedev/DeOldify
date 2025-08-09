@@ -261,6 +261,15 @@ class VideoColorizer:
         bwframes_folder = self.bwframes_root / (source_path.stem)
         bwframe_path_template = str(bwframes_folder / '%5d.jpg')
         bwframes_folder.mkdir(parents=True, exist_ok=True)
+        colorframes_folder = self.colorframes_root / (source_path.stem)
+
+        # Skip extraction when B&W frames already exist so interrupted runs can resume.
+        # The assumption that **all** B&W frames were already extracted is derived from the existence of any colored frames, indicating that the B&W extraction was completed.
+        if any(bwframes_folder.glob('*.jpg')) and any(colorframes_folder.glob('*.jpg')):
+            return print(
+                f"Skipping extraction of B&W frames (already existing)."
+            )
+
         self._purge_images(bwframes_folder)
 
         process = (
@@ -280,7 +289,7 @@ class VideoColorizer:
             logging.error('stderr:' + e.stderr.decode('UTF-8'))
             raise e
         except Exception as e:
-            logging.error('Errror while extracting raw frames from source video.  Details: {0}'.format(e), exc_info=True)   
+            logging.error('Errror while extracting raw frames from source video.  Details: {0}'.format(e), exc_info=True)
             raise e
 
     def _colorize_raw_frames(
@@ -289,13 +298,20 @@ class VideoColorizer:
     ):
         colorframes_folder = self.colorframes_root / (source_path.stem)
         colorframes_folder.mkdir(parents=True, exist_ok=True)
-        self._purge_images(colorframes_folder)
+        # Keep previously colored frames so processing can resume after interruption
+        existing_color_frames = {f.name for f in colorframes_folder.glob('*.jpg')}
         bwframes_folder = self.bwframes_root / (source_path.stem)
+        bw_images = os.listdir(str(bwframes_folder))
 
-        for img in progress_bar(os.listdir(str(bwframes_folder))):
+        print(str(len(existing_color_frames)) + " existing frames (of " + str(len(bw_images)) + ") found that were already colorized.")
+
+        for img in progress_bar(bw_images):
             img_path = bwframes_folder / img
 
             if os.path.isfile(str(img_path)):
+                if img in existing_color_frames:
+                    print(f"Skipping frame {img} (already colorized)")
+                    continue
                 color_image = self.vis.get_transformed_image(
                     str(img_path), render_factor=render_factor, post_process=post_process,watermarked=watermarked
                 )
