@@ -298,16 +298,20 @@ class VideoColorizer:
     ):
         colorframes_folder = self.colorframes_root / (source_path.stem)
         colorframes_folder.mkdir(parents=True, exist_ok=True)
-        # Keep previously colored frames so processing can resume after interruption.
+        # Keep previously colored frames so processing can resume after interruption
         existing_color_frames = {f.name for f in colorframes_folder.glob('*.jpg')}
         bwframes_folder = self.bwframes_root / (source_path.stem)
+        bw_images = os.listdir(str(bwframes_folder))
 
-        for img in progress_bar(sorted(os.listdir(str(bwframes_folder)))):
-            if img in existing_color_frames:
-                continue  # Skip frames that were already colorized
+        print(str(len(existing_color_frames)) + " existing frames (of " + str(len(bw_images)) + ") found that were already colorized.")
+
+        for img in progress_bar(bw_images):
             img_path = bwframes_folder / img
 
             if os.path.isfile(str(img_path)):
+                if img in existing_color_frames:
+                    print(f"Skipping frame {img} (already colorized)")
+                    continue
                 color_image = self.vis.get_transformed_image(
                     str(img_path), render_factor=render_factor, post_process=post_process,watermarked=watermarked
                 )
