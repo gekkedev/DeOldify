@@ -1,5 +1,5 @@
 # NOTE: This must be the first call in order for the script to work properly!
-from deoldify import device, guess_render_factor
+from deoldify import device
 
 # Automatically select the best available device
 # (CUDA, DirectML, or CPU) using internal heuristics
@@ -33,7 +33,8 @@ import subprocess
 
 folder_path = 'video/source'
 result_path = None
-subject_type = "landscape"
+# Set this to override the automatic guess in the visualizer
+render_factor = None
 
 for file_name in os.listdir(folder_path):
     file_path = os.path.join(folder_path, file_name)
@@ -66,13 +67,6 @@ for file_name in os.listdir(folder_path):
         file_name_to_process = mp4_name
     else:
         file_name_to_process = file_name
-
-    # Let the helper pick a render_factor from the video directly. It will
-    # internally extract a frame if needed and clean up after itself.
-    render_factor = guess_render_factor(
-        os.path.join(folder_path, file_name_to_process),
-        subject_type=subject_type,
-    )
 
     print(f"Processing: {file_name_to_process} (render_factor={render_factor})")
     if source_url is None:

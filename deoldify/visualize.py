@@ -15,6 +15,9 @@ from IPython.display import HTML
 from IPython.display import Image as ipythonimage
 import cv2
 import logging
+import subprocess
+import tempfile
+
 
 # adapted from https://www.pyimagesearch.com/2016/04/25/watermarking-images-with-opencv-and-python/
 def get_watermarked(pil_image: Image) -> Image:
@@ -58,7 +61,13 @@ class ModelImageVisualizer:
         return PIL.Image.open(path).convert('RGB')
 
     def _get_image_from_url(self, url: str) -> Image:
-        response = requests.get(url, timeout=30, headers={'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36'})
+        response = requests.get(
+            url,
+            timeout=30,
+            headers={
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36'
+            },
+        )
         img = PIL.Image.open(BytesIO(response.content)).convert('RGB')
         return img
 
@@ -66,10 +75,9 @@ class ModelImageVisualizer:
         self,
         url: str,
         path: str = 'test_images/image.png',
-        results_dir:Path = None,
+        results_dir: Path = None,
         figsize: Tuple[int, int] = (20, 20),
         render_factor: int = None,
-        
         display_render_factor: bool = False,
         compare: bool = False,
         post_process: bool = True,
@@ -84,14 +92,14 @@ class ModelImageVisualizer:
             render_factor=render_factor,
             display_render_factor=display_render_factor,
             compare=compare,
-            post_process = post_process,
+            post_process=post_process,
             watermarked=watermarked,
         )
 
     def plot_transformed_image(
         self,
         path: str,
-        results_dir:Path = None,
+        results_dir: Path = None,
         figsize: Tuple[int, int] = (20, 20),
         render_factor: int = None,
         display_render_factor: bool = False,
@@ -103,7 +111,7 @@ class ModelImageVisualizer:
         if results_dir is None:
             results_dir = Path(self.results_dir)
         result = self.get_transformed_image(
-            path, render_factor, post_process=post_process,watermarked=watermarked
+            path, render_factor, post_process=post_process, watermarked=watermarked
         )
         orig = self._open_pil_image(path)
         if compare:
@@ -158,7 +166,9 @@ class ModelImageVisualizer:
             display_render_factor=display_render_factor,
         )
 
-    def _save_result_image(self, source_path: Path, image: Image, results_dir = None) -> Path:
+    def _save_result_image(
+        self, source_path: Path, image: Image, results_dir=None
+    ) -> Path:
         if results_dir is None:
             results_dir = Path(self.results_dir)
         result_path = results_dir / source_path.name
@@ -166,13 +176,75 @@ class ModelImageVisualizer:
         return result_path
 
     def get_transformed_image(
-        self, path: Path, render_factor: int = None, post_process: bool = True,
+        self,
+        path: Path,
+        render_factor: int = None,
+        post_process: bool = True,
         watermarked: bool = True,
     ) -> Image:
         self._clean_mem()
+        path = Path(path)
+
+        # When no render_factor is provided, estimate a sensible default based on
+        # the dimensions of the source image or an extracted video frame.
+        if render_factor is None:
+            video_exts = {".mp4", ".mov", ".avi", ".mkv"}
+            frame_exts = {".jpg", ".jpeg", ".png"}
+            probe_path = path
+            temp_frame = None
+
+            if path.suffix.lower() in video_exts:
+                # Reuse any existing frame if available. This helps resume
+                # interrupted runs without re-extracting.
+                existing = sorted(
+                    f
+                    for ext in frame_exts
+                    for f in path.parent.rglob(f"{path.stem}_*{ext}")
+                    if f.is_file()
+                )
+                if existing:
+                    probe_path = existing[0]
+                else:
+                    with tempfile.NamedTemporaryFile(
+                        suffix=".jpg", delete=False
+                    ) as tmp:
+                        temp_frame = Path(tmp.name)
+                    cmd = [
+                        "ffmpeg",
+                        "-y",
+                        "-i",
+                        str(path),
+                        "-frames:v",
+                        "1",
+                        str(temp_frame),
+                    ]
+                    try:
+                        subprocess.run(
+                            cmd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            check=True,
+                        )
+                        probe_path = temp_frame
+                    except (FileNotFoundError, subprocess.CalledProcessError):
+                        temp_frame.unlink(missing_ok=True)
+                        render_factor = 21  # fall back to a safe default
+
+            if render_factor is None:
+                with Image.open(probe_path) as img:
+                    width, height = img.size
+                smaller_side = min(width, height)
+                render_factor = max(8, min(smaller_side // 32, 26))
+
+            if temp_frame is not None:
+                temp_frame.unlink(missing_ok=True)
+
         orig_image = self._open_pil_image(path)
         filtered_image = self.filter.filter(
-            orig_image, orig_image, render_factor=render_factor,post_process=post_process
+            orig_image,
+            orig_image,
+            render_factor=render_factor,
+            post_process=post_process,
         )
 
         if watermarked:
@@ -186,7 +258,7 @@ class ModelImageVisualizer:
         render_factor: int,
         axes: Axes = None,
         figsize=(20, 20),
-        display_render_factor = False,
+        display_render_factor=False,
     ):
         if axes is None:
             _, axes = plt.subplots(figsize=figsize)
@@ -201,7 +273,9 @@ class ModelImageVisualizer:
                 backgroundcolor='black',
             )
 
-    def _get_num_rows_columns(self, num_images: int, max_columns: int) -> Tuple[int, int]:
+    def _get_num_rows_columns(
+        self, num_images: int, max_columns: int
+    ) -> Tuple[int, int]:
         columns = min(num_images, max_columns)
         rows = num_images // columns
         rows = rows if rows * columns == num_images else rows + 1
@@ -223,7 +297,7 @@ class VideoColorizer:
             if re.search('.*?\.jpg', f):
                 os.remove(os.path.join(dir, f))
 
-    def _get_ffmpeg_probe(self, path:Path):
+    def _get_ffmpeg_probe(self, path: Path):
         try:
             probe = ffmpeg.probe(str(path))
             return probe
@@ -233,7 +307,10 @@ class VideoColorizer:
             logging.error('stderr:' + e.stderr.decode('UTF-8'))
             raise e
         except Exception as e:
-            logging.error('Failed to instantiate ffmpeg.probe.  Details: {0}'.format(e), exc_info=True)   
+            logging.error(
+                'Failed to instantiate ffmpeg.probe.  Details: {0}'.format(e),
+                exc_info=True,
+            )
             raise e
 
     def _get_fps(self, source_path: Path) -> str:
@@ -252,7 +329,7 @@ class VideoColorizer:
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
             'outtmpl': str(source_path),
             'retries': 30,
-            'fragment-retries': 30
+            'fragment-retries': 30,
         }
         with youtube_dl.YoutubeDL(ydl_opts) as ydl:
             ydl.download([source_url])
@@ -266,20 +343,22 @@ class VideoColorizer:
         # Skip extraction when B&W frames already exist so interrupted runs can resume.
         # The assumption that **all** B&W frames were already extracted is derived from the existence of any colored frames, indicating that the B&W extraction was completed.
         if any(bwframes_folder.glob('*.jpg')) and any(colorframes_folder.glob('*.jpg')):
-            return print(
-                f"Skipping extraction of B&W frames (already existing)."
-            )
+            return print(f"Skipping extraction of B&W frames (already existing).")
         logging.info(f"Extracting raw frames from {source_path} to {bwframes_folder}")
 
         self._purge_images(bwframes_folder)
 
         process = (
-            ffmpeg
-                .input(str(source_path))
-                .output(str(bwframe_path_template), format='image2', vcodec='mjpeg', **{'q:v':'0'})
-                .global_args('-hide_banner')
-                .global_args('-nostats')
-                .global_args('-loglevel', 'error')
+            ffmpeg.input(str(source_path))
+            .output(
+                str(bwframe_path_template),
+                format='image2',
+                vcodec='mjpeg',
+                **{'q:v': '0'},
+            )
+            .global_args('-hide_banner')
+            .global_args('-nostats')
+            .global_args('-loglevel', 'error')
         )
 
         try:
@@ -290,11 +369,19 @@ class VideoColorizer:
             logging.error('stderr:' + e.stderr.decode('UTF-8'))
             raise e
         except Exception as e:
-            logging.error('Errror while extracting raw frames from source video.  Details: {0}'.format(e), exc_info=True)
+            logging.error(
+                'Errror while extracting raw frames from source video.  Details: {0}'.format(
+                    e
+                ),
+                exc_info=True,
+            )
             raise e
 
     def _colorize_raw_frames(
-        self, source_path: Path, render_factor: int = None, post_process: bool = True,
+        self,
+        source_path: Path,
+        render_factor: int = None,
+        post_process: bool = True,
         watermarked: bool = True,
     ):
         colorframes_folder = self.colorframes_root / (source_path.stem)
@@ -307,10 +394,17 @@ class VideoColorizer:
         bw_count = len(bw_images)
 
         if color_count == bw_count:
-            return print(f"Skipping colorization of {source_path.stem} because all {color_count} frames are already colorized.")
+            return print(
+                f"Skipping colorization of {source_path.stem} because all {color_count} frames are already colorized."
+            )
 
         if len(existing_color_frames) > 0:
-            print(str(color_count) + " existing frames (of " + str(bw_count) + ") found that were already colorized.")
+            print(
+                str(color_count)
+                + " existing frames (of "
+                + str(bw_count)
+                + ") found that were already colorized."
+            )
 
         for img in progress_bar(bw_images):
             img_path = bwframes_folder / img
@@ -321,7 +415,10 @@ class VideoColorizer:
                     print(f"Skipping frame {img} (already colorized)")
                     continue
                 color_image = self.vis.get_transformed_image(
-                    str(img_path), render_factor=render_factor, post_process=post_process,watermarked=watermarked
+                    str(img_path),
+                    render_factor=render_factor,
+                    post_process=post_process,
+                    watermarked=watermarked,
                 )
                 color_image.save(str(colorframes_folder / img))
 
@@ -337,12 +434,16 @@ class VideoColorizer:
         fps = self._get_fps(source_path)
 
         process = (
-            ffmpeg 
-                .input(str(colorframes_path_template), format='image2', vcodec='mjpeg', framerate=fps) 
-                .output(str(colorized_path), crf=17, vcodec='libx264')
-                .global_args('-hide_banner')
-                .global_args('-nostats')
-                .global_args('-loglevel', 'error')
+            ffmpeg.input(
+                str(colorframes_path_template),
+                format='image2',
+                vcodec='mjpeg',
+                framerate=fps,
+            )
+            .output(str(colorized_path), crf=17, vcodec='libx264')
+            .global_args('-hide_banner')
+            .global_args('-nostats')
+            .global_args('-loglevel', 'error')
         )
 
         try:
@@ -353,13 +454,18 @@ class VideoColorizer:
             logging.error('stderr:' + e.stderr.decode('UTF-8'))
             raise e
         except Exception as e:
-            logging.error('Errror while building output video.  Details: {0}'.format(e), exc_info=True)   
+            logging.error(
+                'Errror while building output video.  Details: {0}'.format(e),
+                exc_info=True,
+            )
             raise e
 
         result_path = self.result_folder / source_path.name
         if result_path.exists():
-            logging.info(f"Skipping reassembly of existing video: {result_path} - delete the output file if you wish to have it recreated.")
-            #result_path.unlink()
+            logging.info(
+                f"Skipping reassembly of existing video: {result_path} - delete the output file if you wish to have it recreated."
+            )
+            # result_path.unlink()
         else:
             logging.info(f"Assembling video: {result_path}")
             # making copy of non-audio version in case adding back audio doesn't apply or fails.
@@ -404,24 +510,37 @@ class VideoColorizer:
         render_factor: int = None,
         post_process: bool = True,
         watermarked: bool = True,
-
     ) -> Path:
         source_path = self.source_folder / file_name
         self._download_video_from_url(source_url, source_path)
         return self._colorize_from_path(
-            source_path, render_factor=render_factor, post_process=post_process,watermarked=watermarked
+            source_path,
+            render_factor=render_factor,
+            post_process=post_process,
+            watermarked=watermarked,
         )
 
     def colorize_from_file_name(
-        self, file_name: str, render_factor: int = None,  watermarked: bool = True, post_process: bool = True,
+        self,
+        file_name: str,
+        render_factor: int = None,
+        watermarked: bool = True,
+        post_process: bool = True,
     ) -> Path:
         source_path = self.source_folder / file_name
         return self._colorize_from_path(
-            source_path, render_factor=render_factor,  post_process=post_process,watermarked=watermarked
+            source_path,
+            render_factor=render_factor,
+            post_process=post_process,
+            watermarked=watermarked,
         )
 
     def _colorize_from_path(
-        self, source_path: Path, render_factor: int = None,  watermarked: bool = True, post_process: bool = True
+        self,
+        source_path: Path,
+        render_factor: int = None,
+        watermarked: bool = True,
+        post_process: bool = True,
     ) -> Path:
         if not source_path.exists():
             raise Exception(
@@ -429,7 +548,10 @@ class VideoColorizer:
             )
         self._extract_raw_frames(source_path)
         self._colorize_raw_frames(
-            source_path, render_factor=render_factor,post_process=post_process,watermarked=watermarked
+            source_path,
+            render_factor=render_factor,
+            post_process=post_process,
+            watermarked=watermarked,
         )
         return self._build_video(source_path)
 
@@ -442,7 +564,7 @@ def get_artistic_video_colorizer(
     root_folder: Path = Path('./'),
     weights_name: str = 'ColorizeArtistic_gen',
     results_dir='result_images',
-    render_factor: int = 35
+    render_factor: int = 35,
 ) -> VideoColorizer:
     learn = gen_inference_deep(root_folder=root_folder, weights_name=weights_name)
     filtr = MasterFilter([ColorizerFilter(learn=learn)], render_factor=render_factor)
@@ -454,7 +576,7 @@ def get_stable_video_colorizer(
     root_folder: Path = Path('./'),
     weights_name: str = 'ColorizeVideo_gen',
     results_dir='result_images',
-    render_factor: int = 21
+    render_factor: int = 21,
 ) -> VideoColorizer:
     learn = gen_inference_wide(root_folder=root_folder, weights_name=weights_name)
     filtr = MasterFilter([ColorizerFilter(learn=learn)], render_factor=render_factor)
@@ -466,16 +588,20 @@ def get_image_colorizer(
     root_folder: Path = Path('./'), render_factor: int = 35, artistic: bool = True
 ) -> ModelImageVisualizer:
     if artistic:
-        return get_artistic_image_colorizer(root_folder=root_folder, render_factor=render_factor)
+        return get_artistic_image_colorizer(
+            root_folder=root_folder, render_factor=render_factor
+        )
     else:
-        return get_stable_image_colorizer(root_folder=root_folder, render_factor=render_factor)
+        return get_stable_image_colorizer(
+            root_folder=root_folder, render_factor=render_factor
+        )
 
 
 def get_stable_image_colorizer(
     root_folder: Path = Path('./'),
     weights_name: str = 'ColorizeStable_gen',
     results_dir='result_images',
-    render_factor: int = 35
+    render_factor: int = 35,
 ) -> ModelImageVisualizer:
     learn = gen_inference_wide(root_folder=root_folder, weights_name=weights_name)
     filtr = MasterFilter([ColorizerFilter(learn=learn)], render_factor=render_factor)
@@ -487,7 +613,7 @@ def get_artistic_image_colorizer(
     root_folder: Path = Path('./'),
     weights_name: str = 'ColorizeArtistic_gen',
     results_dir='result_images',
-    render_factor: int = 35
+    render_factor: int = 35,
 ) -> ModelImageVisualizer:
     learn = gen_inference_deep(root_folder=root_folder, weights_name=weights_name)
     filtr = MasterFilter([ColorizerFilter(learn=learn)], render_factor=render_factor)
