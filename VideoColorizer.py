@@ -74,6 +74,7 @@ for file_name in os.listdir(folder_path):
         os.remove(frame_path)
     else:
         print(f"Failed to extract frame for {file_name_to_process}: {frame_result.stderr.decode('utf-8')}")
+        # NOTE:  Max is 44 with 11GB video cards.  21 is a good default
         render_factor = 21  # reasonable fallback
 
     print(f"Processing: {file_name_to_process} (render_factor={render_factor})")
