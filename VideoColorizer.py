@@ -1,8 +1,14 @@
 #NOTE:  This must be the first call in order to work properly!
+import os  # Allow device selection via environment variable
 from deoldify import device
 from deoldify.device_id import DeviceId
-#choices:  CPU, GPU0...GPU7
-device.set(device=DeviceId.GPU0)
+# choices:  CPU, GPU0...GPU7
+# Default to CPU so this script works in lightweight containers
+_device_str = os.getenv("DEOLDIFY_DEVICE", "CPU").upper()
+try:
+    device.set(device=DeviceId[_device_str])
+except KeyError:
+    device.set(device=DeviceId.CPU)
 
 import torch
 print("CUDA available: " + str(torch.cuda.is_available()))
@@ -23,7 +29,6 @@ source_url = None
 #source_url='https://twitter.com/silentmoviegifs/status/1116751583386034176'
 
 # read and process the entire video folder
-import os
 import subprocess
 folder_path = 'video/source'
 result_path = None

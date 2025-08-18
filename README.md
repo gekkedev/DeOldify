@@ -582,12 +582,40 @@ docker run -it -v $(pwd):/app/video deoldify python VideoColorizer.py
 ```
 Also good for mounting the source code to achieve faster dev iterations.
 
+### CPU-only lightweight image
+
+For environments without GPU support, a slim image is provided that contains only
+the essentials for running `VideoColorizer.py` on the CPU.
+
+Build the image:
+
+```bash
+cd docker/cpu
+./build.sh
+```
+
+Run the colorizer on all videos in `video/source` of the mounted directory:
+
+```bash
+docker run --rm -v ${PWD}:/app/video deoldify-cpu
+```
+
+The script uses the `DEOLDIFY_DEVICE` environment variable if set; otherwise it
+defaults to CPU, making this container work out of the box on machines without
+hardware acceleration.
+
 ## Roadmap
 
 - skip files that were already colorized
 - example notebooks for new architectures and training recipes.
 - continue aborted colorizations (in case of a power outage or whatever else)
 - ONNX exporter w/ `torch-directml`
+
+### Lightweight CPU Docker
+
+- Pre-build images for multiple platforms
+- Add image colorization support
+- Integrate automated testing for container builds
 
 ### Cross-Platform GPU Support
 
