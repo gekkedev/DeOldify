@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Iterable
 
@@ -46,11 +47,15 @@ def guess_render_factor(media_path: str, subject_type: str = "portrait") -> int:
     created_temp_frame = False
 
     if _is_video(path, video_extensions):
-        # Prefer an existing extracted frame if available.
-        frame_path = path.with_name(f"{path.stem}_frame0.jpg")
-        if not frame_path.exists():
+        # Prefer any pre-extracted frame rather than guessing a specific name.
+        existing_frames = sorted(path.parent.glob(f"{path.stem}_*.jpg"))
+        if existing_frames:
+            frame_path = existing_frames[0]
+        else:
             # Extract a single frame using ffmpeg. Swallow errors to keep the
             # caller running even if ffmpeg is missing.
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+                frame_path = Path(tmp.name)
             cmd = [
                 "ffmpeg",
                 "-y",
@@ -66,6 +71,7 @@ def guess_render_factor(media_path: str, subject_type: str = "portrait") -> int:
                 )
                 created_temp_frame = True
             except (FileNotFoundError, subprocess.CalledProcessError):
+                frame_path.unlink(missing_ok=True)
                 return 21
 
     # If we didn't detect a video, treat the given path as an image.
