@@ -79,9 +79,10 @@ for file_name in os.listdir(folder_path):
 
     print(f"Processing: {file_name_to_process} (render_factor={render_factor})")
     if source_url is None:
-        result_path = colorizer.colorize_from_file_name(file_name_to_process, render_factor=render_factor)
+        # watermark disabled because too blurry on small resolution videos (IDEA: implement scaling)
+        result_path = colorizer.colorize_from_file_name(file_name_to_process, render_factor=render_factor, watermarked=False)
     else:
-        result_path = colorizer.colorize_from_url(source_url, file_name_to_process, render_factor=render_factor)
+        result_path = colorizer.colorize_from_url(source_url, file_name_to_process, render_factor=render_factor, watermarked=False)
 
     # Keeping track of successful processing for logging purposes
     print(f"Processed: {file_name_to_process} → {result_path}")
