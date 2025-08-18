@@ -1,8 +1,11 @@
-# NOTE: This must be the first call in order to work properly!
+#NOTE: This must be the first call in order for the script to work properly!
 from deoldify import device, guess_render_factor
-from deoldify.device_id import DeviceId
-#choices:  CPU, GPU0...GPU7
-device.set(device=DeviceId.GPU0)
+
+from deoldify import device
+# Automatically select the best available device
+# (CUDA, DirectML, or CPU) using internal heuristics
+#choices when setting it manually:  CPU, GPU0...GPU7
+#device.set(device=DeviceId.GPU0)
 
 import torch
 print("CUDA available: " + str(torch.cuda.is_available()))
