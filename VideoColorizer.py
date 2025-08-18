@@ -1,5 +1,5 @@
-#NOTE:  This must be the first call in order to work properly!
-from deoldify import device
+# NOTE: This must be the first call in order to work properly!
+from deoldify import device, guess_render_factor
 from deoldify.device_id import DeviceId
 #choices:  CPU, GPU0...GPU7
 device.set(device=DeviceId.GPU0)
@@ -16,9 +16,7 @@ print("Loading video colorizer...")
 colorizer = get_video_colorizer()
 print("Video colorizer loaded.")
 
-#NOTE:  Max is 44 with 11GB video cards.  21 is a good default
-render_factor=21
-#NOTE:  Make source_url None to just read from file at ./video/source/[file_name] directly without modification
+# NOTE: Make source_url None to just read from file at ./video/source/[file_name] directly without modification
 source_url = None
 #source_url='https://twitter.com/silentmoviegifs/status/1116751583386034176'
 
@@ -27,6 +25,7 @@ import os
 import subprocess
 folder_path = 'video/source'
 result_path = None
+subject_type = "landscape"
 for file_name in os.listdir(folder_path):
     file_path = os.path.join(folder_path, file_name)
 
@@ -59,7 +58,26 @@ for file_name in os.listdir(folder_path):
     else:
         file_name_to_process = file_name
 
-    print(f"Processing: {file_name_to_process}")
+    # Extract a single frame to estimate a good render_factor.
+    base, _ = os.path.splitext(file_name_to_process)
+    frame_path = os.path.join(folder_path, f"{base}_frame0.jpg")
+    cmd = [
+        'ffmpeg',
+        '-y',
+        '-i', os.path.join(folder_path, file_name_to_process),
+        '-frames:v', '1',
+        frame_path,
+    ]
+    frame_result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if frame_result.returncode == 0:
+        render_factor = guess_render_factor(frame_path, subject_type=subject_type)
+        os.remove(frame_path)
+    else:
+        print(f"Failed to extract frame for {file_name_to_process}: {frame_result.stderr.decode('utf-8')}")
+        # NOTE:  Max is 44 with 11GB video cards.  21 is a good default
+        render_factor = 21  # reasonable fallback
+
+    print(f"Processing: {file_name_to_process} (render_factor={render_factor})")
     if source_url is None:
         result_path = colorizer.colorize_from_file_name(file_name_to_process, render_factor=render_factor)
     else:
