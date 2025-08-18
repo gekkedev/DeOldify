@@ -1,16 +1,31 @@
 """Helpers for estimating render parameters."""
+
 from __future__ import annotations
+
+import subprocess
+from pathlib import Path
+from typing import Iterable
 
 from PIL import Image
 
 
-def guess_render_factor(image_path: str, subject_type: str = "portrait") -> int:
-    """Heuristically guess a render factor for an image.
+def _is_video(path: Path, video_exts: Iterable[str]) -> bool:
+    """Return ``True`` if *path* looks like a video file."""
+
+    return path.suffix.lower() in video_exts
+
+
+def guess_render_factor(media_path: str, subject_type: str = "portrait") -> int:
+    """Heuristically guess a render factor for an image or video.
+
+    If a video path is provided, the first frame is extracted using ``ffmpeg`` and
+    analysed to determine the render factor. This keeps callers from having to
+    manually handle temporary frame extraction.
 
     Parameters
     ----------
-    image_path: str
-        Path to the image file on disk.
+    media_path: str
+        Path to an image or video file on disk.
     subject_type: str, optional
         Either ``"portrait"`` (default) or ``"landscape"``/``"detail"``. Portraits
         generally benefit from slightly lower ``render_factor`` values to avoid
@@ -20,8 +35,41 @@ def guess_render_factor(image_path: str, subject_type: str = "portrait") -> int:
     Returns
     -------
     int
-        A suggested ``render_factor`` value within a sensible range.
+        A suggested ``render_factor`` value within a sensible range. Falls back to
+        ``21`` if a video frame cannot be extracted.
     """
+
+    path = Path(media_path)
+    video_extensions = {".mp4", ".mov", ".avi", ".mkv"}
+
+    frame_path = None
+    created_temp_frame = False
+
+    if _is_video(path, video_extensions):
+        # Prefer an existing extracted frame if available.
+        frame_path = path.with_name(f"{path.stem}_frame0.jpg")
+        if not frame_path.exists():
+            # Extract a single frame using ffmpeg. Swallow errors to keep the
+            # caller running even if ffmpeg is missing.
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(path),
+                "-frames:v",
+                "1",
+                str(frame_path),
+            ]
+            try:
+                subprocess.run(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True
+                )
+                created_temp_frame = True
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                return 21
+
+    # If we didn't detect a video, treat the given path as an image.
+    image_path = frame_path if frame_path is not None else path
 
     with Image.open(image_path) as img:
         width, height = img.size
@@ -39,5 +87,9 @@ def guess_render_factor(image_path: str, subject_type: str = "portrait") -> int:
     else:
         # Non-portraits can use slightly higher factors for richer detail.
         factor = max(factor, 12)
+
+    if created_temp_frame:
+        # Clean up the temporary frame we extracted earlier.
+        frame_path.unlink(missing_ok=True)
 
     return int(factor)
