@@ -269,6 +269,7 @@ class VideoColorizer:
             return print(
                 f"Skipping extraction of B&W frames (already existing)."
             )
+        logging.info(f"Extracting raw frames from {source_path} to {bwframes_folder}")
 
         self._purge_images(bwframes_folder)
 
@@ -298,17 +299,24 @@ class VideoColorizer:
     ):
         colorframes_folder = self.colorframes_root / (source_path.stem)
         colorframes_folder.mkdir(parents=True, exist_ok=True)
-        # Keep previously colored frames so processing can resume after interruption
         existing_color_frames = {f.name for f in colorframes_folder.glob('*.jpg')}
+        color_count = len(existing_color_frames)
+
         bwframes_folder = self.bwframes_root / (source_path.stem)
         bw_images = os.listdir(str(bwframes_folder))
+        bw_count = len(bw_images)
 
-        print(str(len(existing_color_frames)) + " existing frames (of " + str(len(bw_images)) + ") found that were already colorized.")
+        if color_count == bw_count:
+            return print(f"Skipping colorization of {source_path.stem} because all {color_count} frames are already colorized.")
+
+        if len(existing_color_frames) > 0:
+            print(str(color_count) + " existing frames (of " + str(bw_count) + ") found that were already colorized.")
 
         for img in progress_bar(bw_images):
             img_path = bwframes_folder / img
 
             if os.path.isfile(str(img_path)):
+                # Keep previously colored frames so processing can resume after interruption
                 if img in existing_color_frames:
                     print(f"Skipping frame {img} (already colorized)")
                     continue
@@ -350,40 +358,43 @@ class VideoColorizer:
 
         result_path = self.result_folder / source_path.name
         if result_path.exists():
-            result_path.unlink()
-        # making copy of non-audio version in case adding back audio doesn't apply or fails.
-        shutil.copyfile(str(colorized_path), str(result_path))
+            logging.info(f"Skipping reassembly of existing video: {result_path} - delete the output file if you wish to have it recreated.")
+            #result_path.unlink()
+        else:
+            logging.info(f"Assembling video: {result_path}")
+            # making copy of non-audio version in case adding back audio doesn't apply or fails.
+            shutil.copyfile(str(colorized_path), str(result_path))
 
-        # adding back sound here
-        audio_file = Path(str(source_path).replace('.mp4', '.aac'))
-        if audio_file.exists():
-            audio_file.unlink()
+            # adding back sound here
+            audio_file = Path(str(source_path).replace('.mp4', '.aac'))
+            if audio_file.exists():
+                audio_file.unlink()
 
-        os.system(
-            'ffmpeg -y -i "'
-            + str(source_path)
-            + '" -vn -acodec copy "'
-            + str(audio_file)
-            + '"'
-            + ' -hide_banner'
-            + ' -nostats'
-            + ' -loglevel error'
-        )
-
-        if audio_file.exists():
             os.system(
                 'ffmpeg -y -i "'
-                + str(colorized_path)
-                + '" -i "'
+                + str(source_path)
+                + '" -vn -acodec copy "'
                 + str(audio_file)
-                + '" -shortest -c:v copy -c:a aac -b:a 256k "'
-                + str(result_path)
                 + '"'
                 + ' -hide_banner'
                 + ' -nostats'
                 + ' -loglevel error'
             )
-        logging.info('Video created here: ' + str(result_path))
+
+            if audio_file.exists():
+                os.system(
+                    'ffmpeg -y -i "'
+                    + str(colorized_path)
+                    + '" -i "'
+                    + str(audio_file)
+                    + '" -shortest -c:v copy -c:a aac -b:a 256k "'
+                    + str(result_path)
+                    + '"'
+                    + ' -hide_banner'
+                    + ' -nostats'
+                    + ' -loglevel error'
+                )
+            logging.info('Video created here: ' + str(result_path))
         return result_path
 
     def colorize_from_url(
