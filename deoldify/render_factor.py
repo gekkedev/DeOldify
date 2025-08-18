@@ -48,7 +48,13 @@ def guess_render_factor(media_path: str, subject_type: str = "portrait") -> int:
 
     if _is_video(path, video_extensions):
         # Prefer any pre-extracted frame rather than guessing a specific name.
-        existing_frames = sorted(path.parent.glob(f"{path.stem}_*.jpg"))
+        frame_extensions = {".jpg", ".jpeg", ".png"}
+        existing_frames = sorted(
+            f
+            for ext in frame_extensions
+            for f in path.parent.rglob(f"*{ext}")
+            if f.is_file()
+        )
         if existing_frames:
             frame_path = existing_frames[0]
         else:
