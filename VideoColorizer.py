@@ -1,5 +1,5 @@
 #NOTE: This must be the first call in order for the script to work properly!
-from deoldify import device, guess_render_factor
+from deoldify import device
 
 from deoldify import device
 # Automatically select the best available device
@@ -61,31 +61,16 @@ for file_name in os.listdir(folder_path):
     else:
         file_name_to_process = file_name
 
-    # Extract a single frame to estimate a good render_factor.
-    base, _ = os.path.splitext(file_name_to_process)
-    frame_path = os.path.join(folder_path, f"{base}_frame0.jpg")
-    cmd = [
-        'ffmpeg',
-        '-y',
-        '-i', os.path.join(folder_path, file_name_to_process),
-        '-frames:v', '1',
-        frame_path,
-    ]
-    frame_result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if frame_result.returncode == 0:
-        render_factor = guess_render_factor(frame_path, subject_type=subject_type)
-        os.remove(frame_path)
-    else:
-        print(f"Failed to extract frame for {file_name_to_process}: {frame_result.stderr.decode('utf-8')}")
-        # NOTE:  Max is 44 with 11GB video cards.  21 is a good default
-        render_factor = 21  # reasonable fallback
+    # NOTE:  Max is 44 with 11GB video cards.  21 is a good default
+    # render_factor = 21
+    # if set manually, provide as param to the video colorizer like this: render_factor=render_factor
 
-    print(f"Processing: {file_name_to_process} (render_factor={render_factor})")
+    print(f"Processing: {file_name_to_process}")
     if source_url is None:
         # watermark disabled because too blurry on small resolution videos (IDEA: implement scaling)
-        result_path = colorizer.colorize_from_file_name(file_name_to_process, render_factor=render_factor, watermarked=False)
+        result_path = colorizer.colorize_from_file_name(file_name_to_process, watermarked=False)
     else:
-        result_path = colorizer.colorize_from_url(source_url, file_name_to_process, render_factor=render_factor, watermarked=False)
+        result_path = colorizer.colorize_from_url(source_url, file_name_to_process, watermarked=False)
 
     # Keeping track of successful processing for logging purposes
     print(f"Processed: {file_name_to_process} → {result_path}")

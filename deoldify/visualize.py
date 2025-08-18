@@ -3,6 +3,7 @@ from fastai.vision import *
 from matplotlib.axes import Axes
 from .filters import IFilter, MasterFilter, ColorizerFilter
 from .generators import gen_inference_deep, gen_inference_wide
+from .render_factor import guess_render_factor
 from PIL import Image
 import ffmpeg
 import yt_dlp as youtube_dl
@@ -218,11 +219,6 @@ class VideoColorizer:
         self.colorframes_root = workfolder / "colorframes"
         self.result_folder = workfolder / "result"
 
-    def _purge_images(self, dir):
-        for f in os.listdir(dir):
-            if re.search('.*?\.jpg', f):
-                os.remove(os.path.join(dir, f))
-
     def _get_ffmpeg_probe(self, path:Path):
         try:
             probe = ffmpeg.probe(str(path))
@@ -271,8 +267,6 @@ class VideoColorizer:
             )
         logging.info(f"Extracting raw frames from {source_path} to {bwframes_folder}")
 
-        self._purge_images(bwframes_folder)
-
         process = (
             ffmpeg
                 .input(str(source_path))
@@ -311,6 +305,18 @@ class VideoColorizer:
 
         if len(existing_color_frames) > 0:
             print(str(color_count) + " existing frames (of " + str(bw_count) + ") found that were already colorized.")
+
+        if render_factor is None:
+            # If no render_factor is provided, estimate it based on any B/W frame.
+            if bw_count == 0:
+                print(f"No B/W frames found in {bwframes_folder}. Using default render_factor.")
+                render_factor = 21
+            else:
+                print(f"Estimating render_factor from existing B/W frames in {bwframes_folder}.")
+                # Use the first B/W frame to guess a good render_factor
+            render_factor = guess_render_factor(str(bwframes_folder / bw_images[0]))
+            print(f"Using render_factor={render_factor} based on existing B/W frames.")
+        print(f"Colorizing {bw_count - color_count} frames with render_factor={render_factor}...")
 
         for img in progress_bar(bw_images):
             img_path = bwframes_folder / img
@@ -425,7 +431,7 @@ class VideoColorizer:
     ) -> Path:
         if not source_path.exists():
             raise Exception(
-                'Video at path specfied, ' + str(source_path) + ' could not be found.'
+                'Video at path specfied (' + str(source_path) + ') could not be found.'
             )
         self._extract_raw_frames(source_path)
         self._colorize_raw_frames(

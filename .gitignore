@@ -123,3 +123,6 @@ test_images/*.jpeg
 test_images/*.JPEG 
 deoldify/.ipynb_checkpoints/*-checkpoint.py
 tmp*
+
+#temporary Windows Docker build scripts
+temp_script.bat
