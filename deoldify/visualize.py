@@ -6,7 +6,6 @@ from .generators import gen_inference_deep, gen_inference_wide
 from .render_factor import guess_render_factor
 from PIL import Image
 import ffmpeg
-import yt_dlp as youtube_dl
 import gc
 import requests
 from io import BytesIO
@@ -16,6 +15,7 @@ from IPython.display import HTML
 from IPython.display import Image as ipythonimage
 import cv2
 import logging
+from fastprogress.fastprogress import progress_bar, MasterBar
 
 # adapted from https://www.pyimagesearch.com/2016/04/25/watermarking-images-with-opencv-and-python/
 def get_watermarked(pil_image: Image) -> Image:
@@ -240,19 +240,6 @@ class VideoColorizer:
         )
         return stream_data['avg_frame_rate']
 
-    def _download_video_from_url(self, source_url, source_path: Path):
-        if source_path.exists():
-            source_path.unlink()
-
-        ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
-            'outtmpl': str(source_path),
-            'retries': 30,
-            'fragment-retries': 30
-        }
-        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([source_url])
-
     def _extract_raw_frames(self, source_path: Path):
         bwframes_folder = self.bwframes_root / (source_path.stem)
         bwframe_path_template = str(bwframes_folder / '%5d.jpg')
@@ -289,7 +276,7 @@ class VideoColorizer:
 
     def _colorize_raw_frames(
         self, source_path: Path, render_factor: int = None, post_process: bool = True,
-        watermarked: bool = True,
+        watermarked: bool = True, bar: MasterBar = None
     ):
         colorframes_folder = self.colorframes_root / (source_path.stem)
         colorframes_folder.mkdir(parents=True, exist_ok=True)
@@ -315,19 +302,19 @@ class VideoColorizer:
                 print(f"Estimating render_factor from existing B/W frames in {bwframes_folder}.")
                 # Use the first B/W frame to guess a good render_factor
             render_factor = guess_render_factor(str(bwframes_folder / bw_images[0]))
-            print(f"Using render_factor={render_factor} based on existing B/W frames.")
+            print(f"Using a render_factor based on existing B/W frames.")
         print(f"Colorizing {bw_count - color_count} frames with render_factor={render_factor}...")
 
-        for img in progress_bar(bw_images):
+        for img in progress_bar(bw_images, master=bar):
             img_path = bwframes_folder / img
 
             if os.path.isfile(str(img_path)):
                 # Keep previously colored frames so processing can resume after interruption
                 if img in existing_color_frames:
-                    print(f"Skipping frame {img} (already colorized)")
+                    #print(f"Skipping frame {img} (already colorized)")
                     continue
                 color_image = self.vis.get_transformed_image(
-                    str(img_path), render_factor=render_factor, post_process=post_process,watermarked=watermarked
+                    str(img_path), render_factor=21, post_process=post_process,watermarked=watermarked
                 )
                 color_image.save(str(colorframes_folder / img))
 
@@ -403,39 +390,17 @@ class VideoColorizer:
             logging.info('Video created here: ' + str(result_path))
         return result_path
 
-    def colorize_from_url(
-        self,
-        source_url,
-        file_name: str,
-        render_factor: int = None,
-        post_process: bool = True,
-        watermarked: bool = True,
-
-    ) -> Path:
-        source_path = self.source_folder / file_name
-        self._download_video_from_url(source_url, source_path)
-        return self._colorize_from_path(
-            source_path, render_factor=render_factor, post_process=post_process,watermarked=watermarked
-        )
-
     def colorize_from_file_name(
-        self, file_name: str, render_factor: int = None,  watermarked: bool = True, post_process: bool = True,
+        self, file_name: str, render_factor: int = None,  watermarked: bool = True, post_process: bool = True, bar: MasterBar = None
     ) -> Path:
-        source_path = self.source_folder / file_name
-        return self._colorize_from_path(
-            source_path, render_factor=render_factor,  post_process=post_process,watermarked=watermarked
-        )
-
-    def _colorize_from_path(
-        self, source_path: Path, render_factor: int = None,  watermarked: bool = True, post_process: bool = True
-    ) -> Path:
+        source_path: Path = self.source_folder / file_name
         if not source_path.exists():
             raise Exception(
                 'Video at path specfied (' + str(source_path) + ') could not be found.'
             )
         self._extract_raw_frames(source_path)
         self._colorize_raw_frames(
-            source_path, render_factor=render_factor,post_process=post_process,watermarked=watermarked
+            source_path, render_factor=render_factor, post_process=post_process, watermarked=watermarked, bar=bar
         )
         return self._build_video(source_path)
 

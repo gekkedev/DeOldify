@@ -1,0 +1,4 @@
+#must use python 3.10
+torch-directml
+torch<2
+torchvision==0.14.*

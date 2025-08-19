@@ -1,15 +1,17 @@
-numpy>=1.21,<1.24
+# common dependencies for all use cases
 
-wandb
-fastai==1.0.60
-tensorboardX>=1.6
+# indirect dependency, version locked for compatibility
+numpy>=1.21,<1.24
 
 # ffmpeg excluded because we'll need python binaries that were compiled **with** the desired --enable-libx264 flag
 #ffmpeg
 ffmpeg-python # only the wrapper
 
-yt-dlp
-#jupyterlab # TODO: separate jupyter lab dependencies from CLI dependencies
+fastprogress
+wandb
+fastai==1.0.60
+tensorboardX>=1.6
+
 opencv-python>=4.2.0.32
 Pillow==9.3.0
 --extra-index-url https://download.pytorch.org/whl/cu113

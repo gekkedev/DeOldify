@@ -35,6 +35,7 @@ class _Device:
         self._torch_device: torch.device = torch.device("cpu")
         # Auto-select a device during initialization so callers don't need to.
         self.set()
+        print(f"Using backend: {self.backend()}")
 
     # Public API ---------------------------------------------------------
     def is_gpu(self) -> bool:

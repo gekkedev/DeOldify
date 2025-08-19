@@ -591,8 +591,9 @@ Also good for mounting the source code to achieve faster dev iterations.
 
 ### Cross-Platform GPU Support
 
-The community is exploring a path to run DeOldify on both NVIDIA CUDA and
-DirectML devices. The high-level plan is:
+The project is exploring a path to run *DeOldify* on both NVIDIA CUDA and
+DirectML devices (i.e. Intel GPUs) while relying on the new automatic device wrapper.
+The high-level plan is:
 
 1. Introduce a device wrapper that can switch between CUDA and DirectML
    automatically depending on availability. CPU-only mode as fallback in case no
@@ -604,7 +605,3 @@ DirectML devices. The high-level plan is:
 
 Each milestone should keep the codebase in a working state so contributors can
 iterate safely.
-
-**Current status:** a simple device wrapper is now available and a
-`video_colorize_dml.py` script demonstrates video inference on DirectML.
-

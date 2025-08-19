@@ -32,7 +32,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 COPY . .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-common.txt
 
 # Download the pre-trained models for image and video colorization
 # These are large files, so it may take some time to download
@@ -40,7 +40,7 @@ RUN wget https://data.deepai.org/deoldify/ColorizeArtistic_gen.pth -O ./models/C
     wget https://www.dropbox.com/s/axsd2g85uyixaho/ColorizeStable_gen.pth?dl=0 -O ./models/ColorizeStable_gen.pth && \
     wget https://data.deepai.org/deoldify/ColorizeVideo_gen.pth -O ./models/ColorizeVideo_gen.pth
 
-# Trigger the ResNet checkpoint download by loading the models once which results in the checkpoint being downloaded
+# Trigger the ResNet checkpoint (model weights) download by loading the models once which results in the checkpoint being downloaded
 RUN python -c "from deoldify.visualize import *; get_video_colorizer(); get_image_colorizer(); get_image_colorizer(artistic=False)"
 
 # Default command runs an interactive Python session
