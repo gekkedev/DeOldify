@@ -17,7 +17,6 @@ import cv2
 import logging
 from fastprogress.fastprogress import progress_bar, MasterBar
 from fastai.basic_data import DatasetType
-from deoldify import device
 import torch
 from typing import List
 
@@ -327,13 +326,14 @@ class VideoColorizer:
                 filt = color_filter._transform(orig)
                 model_ready = color_filter._get_model_ready_image(filt, render_sz)
                 t = pil2tensor(model_ready, np.float32)
+                t = t.to(color_filter.device, non_blocking=True)
+                # Normalize on the same device as the model to avoid copies
                 t.div_(255)
                 t, _ = color_filter.norm((t, t), do_x=True)
                 origs.append(orig)
                 tensors.append(t)
 
             batch = torch.stack(tensors)
-            batch = batch.to(device.torch_device(), non_blocking=True)
             preds = color_filter.learn.pred_batch(
                 ds_type=DatasetType.Valid, batch=(batch, batch), reconstruct=True
             )
