@@ -381,6 +381,10 @@ class VideoColorizer:
             process_batch(batch_files)
 
     def _build_video(self, source_path: Path) -> Path:
+        result_path = self.result_folder / source_path.name
+        if result_path.exists():
+            return logging.info(f"Skipping reassembly of existing video: {result_path} - delete the output file if you wish to have it recreated.")
+
         colorized_path = self.result_folder / (
             source_path.name.replace('.mp4', '_no_audio.mp4')
         )
@@ -411,9 +415,8 @@ class VideoColorizer:
             logging.error('Errror while building output video.  Details: {0}'.format(e), exc_info=True)   
             raise e
 
-        result_path = self.result_folder / source_path.name
-        if result_path.exists():
-            logging.info(f"Skipping reassembly of existing video: {result_path} - delete the output file if you wish to have it recreated.")
+        # Skipping implemented above; deletion skipped to avoid loosing progress
+        # if result_path.exists():
             #result_path.unlink()
         else:
             logging.info(f"Assembling video: {result_path}")

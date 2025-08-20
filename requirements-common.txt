@@ -11,7 +11,6 @@ fastprogress
 wandb
 fastai==1.0.60
 tensorboardX>=1.6
-
 opencv-python>=4.2.0.32
 Pillow==9.3.0
 --extra-index-url https://download.pytorch.org/whl/cu113
