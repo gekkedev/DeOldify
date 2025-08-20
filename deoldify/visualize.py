@@ -16,6 +16,10 @@ from IPython.display import Image as ipythonimage
 import cv2
 import logging
 from fastprogress.fastprogress import progress_bar, MasterBar
+from fastai.basic_data import DatasetType
+from deoldify import device
+import torch
+from typing import List
 
 # adapted from https://www.pyimagesearch.com/2016/04/25/watermarking-images-with-opencv-and-python/
 def get_watermarked(pil_image: Image) -> Image:
@@ -305,18 +309,60 @@ class VideoColorizer:
             print(f"Using a render_factor based on existing B/W frames.")
         print(f"Colorizing {bw_count - color_count} frames with render_factor={render_factor}...")
 
+        color_filter = self.vis.filter.filters[0]
+        render_sz = render_factor * color_filter.render_base
+
+        BATCH = 8  # Process multiple frames together for efficiency
+        batch_files: List[str] = []
+
+        def process_batch(files: List[str]):
+            """Colorize a single batch of frame files."""
+            if not files:
+                return
+
+            origs, tensors = [], []
+            for name in files:
+                img_path = bwframes_folder / name
+                orig = Image.open(img_path).convert('RGB')
+                filt = color_filter._transform(orig)
+                model_ready = color_filter._get_model_ready_image(filt, render_sz)
+                t = pil2tensor(model_ready, np.float32)
+                t.div_(255)
+                t, _ = color_filter.norm((t, t), do_x=True)
+                origs.append(orig)
+                tensors.append(t)
+
+            batch = torch.stack(tensors)
+            batch = batch.to(device.torch_device(), non_blocking=True)
+            preds = color_filter.learn.pred_batch(
+                ds_type=DatasetType.Valid, batch=(batch, batch), reconstruct=True
+            )
+
+            for pred, orig, name in zip(preds, origs, files):
+                out = color_filter.denorm(pred.px, do_x=False)
+                out = image2np(out * 255).astype(np.uint8)
+                model_img = Image.fromarray(out)
+                raw = color_filter._unsquare(model_img, orig)
+                result = (
+                    color_filter._post_process(raw, orig) if post_process else raw
+                )
+                if watermarked:
+                    result = get_watermarked(result)
+                result.save(str(colorframes_folder / name))
+                result.close()
+                orig.close()
+
         for img in progress_bar(bw_images, master=bar):
             img_path = bwframes_folder / img
+            if not img_path.is_file() or img in existing_color_frames:
+                continue
+            batch_files.append(img)
+            if len(batch_files) == BATCH:
+                process_batch(batch_files)
+                batch_files = []
 
-            if os.path.isfile(str(img_path)):
-                # Keep previously colored frames so processing can resume after interruption
-                if img in existing_color_frames:
-                    #print(f"Skipping frame {img} (already colorized)")
-                    continue
-                color_image = self.vis.get_transformed_image(
-                    str(img_path), render_factor=21, post_process=post_process,watermarked=watermarked
-                )
-                color_image.save(str(colorframes_folder / img))
+        if batch_files:
+            process_batch(batch_files)
 
     def _build_video(self, source_path: Path) -> Path:
         colorized_path = self.result_folder / (
