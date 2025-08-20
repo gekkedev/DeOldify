@@ -35,10 +35,13 @@ COPY . .
 RUN pip install --no-cache-dir -r requirements-common.txt
 
 # Download the pre-trained models for image and video colorization
+# happens only if not already present in the build context and already copied into the container
 # These are large files, so it may take some time to download
-RUN wget https://data.deepai.org/deoldify/ColorizeArtistic_gen.pth -O ./models/ColorizeArtistic_gen.pth && \
-    wget https://www.dropbox.com/s/axsd2g85uyixaho/ColorizeStable_gen.pth?dl=0 -O ./models/ColorizeStable_gen.pth && \
-    wget https://data.deepai.org/deoldify/ColorizeVideo_gen.pth -O ./models/ColorizeVideo_gen.pth
+RUN [ ! -f ./models/ColorizeArtistic_gen.pth ] && wget https://data.deepai.org/deoldify/ColorizeArtistic_gen.pth -O ./models/ColorizeArtistic_gen.pth || true && \
+    [ ! -f ./models/ColorizeStable_gen.pth ] && wget https://www.dropbox.com/s/axsd2g85uyixaho/ColorizeStable_gen.pth?dl=0 -O ./models/ColorizeStable_gen.pth || true && \
+    [ ! -f ./models/ColorizeVideo_gen.pth ] && wget https://data.deepai.org/deoldify/ColorizeVideo_gen.pth -O ./models/ColorizeVideo_gen.pth || true
+# to clean up:
+RUN apt remove -y wget
 
 # Trigger the ResNet checkpoint (model weights) download by loading the models once which results in the checkpoint being downloaded
 RUN python -c "from deoldify.visualize import *; get_video_colorizer(); get_image_colorizer(); get_image_colorizer(artistic=False)"
