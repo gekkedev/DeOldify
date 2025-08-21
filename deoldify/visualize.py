@@ -378,7 +378,15 @@ class VideoColorizer:
                 msg = str(e).lower()
                 # DirectML sometimes raises a bare RuntimeError with no message when
                 # memory is exhausted; treat that the same as any other OOM signal.
-                oom_signals = ["out of memory", "unbox expects dml", "privateuse1"]
+                # Include a few known phrases that indicate DirectML ran out of memory.
+                # Some locales (e.g. German) report "Unbekannter Fehler" for OOM, so
+                # treat that as a signal as well.
+                oom_signals = [
+                    "out of memory",
+                    "unbox expects dml",
+                    "privateuse1",
+                    "unbekannter fehler",
+                ]
                 is_oom = (not msg) or any(sig in msg for sig in oom_signals)
                 if is_oom and len(files) > 1:
                     # Free cached memory and retry with a smaller batch
