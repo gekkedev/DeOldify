@@ -376,12 +376,16 @@ class VideoColorizer:
                 )
             except RuntimeError as e:
                 msg = str(e).lower()
-                if "out of memory" in msg and len(files) > 1:
-                    # Free any cached GPU memory and retry with a smaller batch
+                oom_signals = ["out of memory", "unbox expects dml", "privateuse1"]
+                if any(sig in msg for sig in oom_signals) and len(files) > 1:
+                    # Free cached memory and retry with a smaller batch
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
+                    gc.collect()
                     batch_size = max(1, batch_size // 2)
                     print(f"OOM detected, reducing batch size to {batch_size}")
+                    # Drop the current batch before recursion to release memory
+                    del batch
                     for i in range(0, len(files), batch_size):
                         process_batch(files[i : i + batch_size])
                     return
