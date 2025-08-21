@@ -312,39 +312,13 @@ class VideoColorizer:
         color_filter = self.vis.filter.filters[0]
         render_sz = render_factor * color_filter.render_base
 
-        def estimate_batch_size() -> int:
-            """Estimate a starting batch size from resolution and memory.
-
-            batch_size ≈ target_mem / (render_sz**2 * channels * dtype)
-            where target_mem is 50% of GPU RAM or 25% of system RAM on CPU.
-            """
-            frame_bytes = render_sz * render_sz * 3 * 4  # 3 channels, float32
-            if device.backend() == "cuda":
-                total = torch.cuda.get_device_properties(0).total_memory
-                target = total * 0.5
-            elif device.backend() == "cpu":
-                try:
-                    import psutil
-                    total = psutil.virtual_memory().available
-                    target = total * 0.25
-                except Exception:
-                    # Fallback for systems without psutil
-                    target = 512 * 1024 ** 2
-            else:
-                # DirectML or other backends don't expose memory; assume ~1GB
-                target = 1 * 1024 ** 3
-            # Cap at 32 to avoid runaway allocations; OOM handler will scale down.
-            return max(1, min(32, int(target / frame_bytes)))
-
-        batch_size = estimate_batch_size()
+        # Start with a generous batch size on GPU/backends and scale down on OOM.
+        batch_size = 8 if device.backend() != "cpu" else 1
         batch_files: List[str] = []
 
-        # Move the model and learner to the selected backend and keep track of it
-        # so that `pred_batch` doesn't bounce tensors across devices.
+        # Anchor the model on the active device once; tensors will move per batch.
         torch_dev = device.torch_device()
         color_filter.learn.model.to(torch_dev)
-        color_filter.learn.data.device = torch_dev
-        color_filter.device = torch_dev
 
         def process_batch(files: List[str]):
             """Colorize a single batch of frame files."""
