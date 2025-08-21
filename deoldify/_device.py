@@ -1,10 +1,10 @@
 """Runtime device selection utilities.
 
 This module provides a small wrapper that automatically selects an appropriate
-torch device. CUDA is preferred when available, otherwise a DirectML device is
-used if the ``torch_directml`` package can be imported. If neither backend is
-available the code falls back to CPU.  The helper is intentionally lightweight
-so it can be imported early in the application lifecycle.
+torch device.  A DirectML device is preferred when the ``torch_directml``
+package is available, otherwise the code falls back to CUDA and finally to the
+CPU.  The helper is intentionally lightweight so it can be imported early in
+the application lifecycle.
 """
 
 from __future__ import annotations
@@ -78,19 +78,21 @@ class _Device:
             logging.info("Using CUDA device %s", device.value)
             return self._torch_device
 
-        # Auto-detect best available backend
-        if torch.cuda.is_available():
-            self._backend = "cuda"
-            self._torch_device = torch.device("cuda")
-            logging.info("Using CUDA device")
-        else:
-            try:
-                import torch_directml  # type: ignore
+        # Auto-detect best available backend.  Prefer DirectML over CUDA so
+        # Windows users with the DirectML package installed don't accidentally
+        # run the heavier CUDA build.
+        try:
+            import torch_directml  # type: ignore
 
-                self._backend = "directml"
-                self._torch_device = torch_directml.device()
-                logging.info("Using DirectML device")
-            except Exception:
+            self._backend = "directml"
+            self._torch_device = torch_directml.device()
+            logging.info("Using DirectML device")
+        except Exception:
+            if torch.cuda.is_available():
+                self._backend = "cuda"
+                self._torch_device = torch.device("cuda")
+                logging.info("Using CUDA device")
+            else:
                 self._backend = "cpu"
                 self._torch_device = torch.device("cpu")
                 logging.info("Falling back to CPU")
