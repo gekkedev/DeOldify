@@ -365,12 +365,12 @@ class VideoColorizer:
                 origs.append(orig)
                 tensors.append(t)
 
-            # Stack then ship the entire batch to the model's device once
-            batch = torch.stack(tensors).to(color_filter.device, non_blocking=True)
-            # Some layers (e.g. spectral norm) may sneak weights back to CPU when
-            # using DirectML, so reassert the model on the target device here.
-            color_filter.learn.model.to(color_filter.device)
             try:
+                # Stack then ship the entire batch to the model's device once
+                batch = torch.stack(tensors).to(torch_dev, non_blocking=True)
+                # Some layers (e.g. spectral norm) may sneak weights back to CPU when
+                # using DirectML, so reassert the model on the target device here.
+                color_filter.learn.model.to(torch_dev)
                 preds = color_filter.learn.pred_batch(
                     ds_type=DatasetType.Valid, batch=(batch, batch), reconstruct=True
                 )
@@ -387,8 +387,10 @@ class VideoColorizer:
                     gc.collect()
                     batch_size = max(1, batch_size // 2)
                     print(f"OOM detected, reducing batch size to {batch_size}")
-                    # Drop the current batch before recursion to release memory
-                    del batch
+                    # Drop references before recursion to release memory pressure
+                    if 'batch' in locals():
+                        del batch
+                    del tensors, origs
                     for i in range(0, len(files), batch_size):
                         process_batch(files[i : i + batch_size])
                     return
@@ -407,6 +409,9 @@ class VideoColorizer:
                 result.save(str(colorframes_folder / name))
                 result.close()
                 orig.close()
+
+            # Free GPU/CPU memory tied to this batch before the next one
+            del batch, tensors, origs
 
         for img in progress_bar(bw_images, master=bar):
             img_path = bwframes_folder / img
