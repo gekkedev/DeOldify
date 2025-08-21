@@ -339,9 +339,12 @@ class VideoColorizer:
         batch_size = estimate_batch_size()
         batch_files: List[str] = []
 
-        # Move the model to the selected backend and keep track of it.
-        color_filter.learn.model.to(device.torch_device())
-        color_filter.device = device.torch_device()
+        # Move the model and learner to the selected backend and keep track of it
+        # so that `pred_batch` doesn't bounce tensors across devices.
+        torch_dev = device.torch_device()
+        color_filter.learn.model.to(torch_dev)
+        color_filter.learn.data.device = torch_dev
+        color_filter.device = torch_dev
 
         def process_batch(files: List[str]):
             """Colorize a single batch of frame files."""
@@ -364,6 +367,9 @@ class VideoColorizer:
 
             # Stack then ship the entire batch to the model's device once
             batch = torch.stack(tensors).to(color_filter.device, non_blocking=True)
+            # Some layers (e.g. spectral norm) may sneak weights back to CPU when
+            # using DirectML, so reassert the model on the target device here.
+            color_filter.learn.model.to(color_filter.device)
             try:
                 preds = color_filter.learn.pred_batch(
                     ds_type=DatasetType.Valid, batch=(batch, batch), reconstruct=True
