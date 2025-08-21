@@ -16,6 +16,10 @@ from IPython.display import Image as ipythonimage
 import cv2
 import logging
 from fastprogress.fastprogress import progress_bar, MasterBar
+from fastai.basic_data import DatasetType
+import torch
+from typing import List
+from deoldify import device
 
 # adapted from https://www.pyimagesearch.com/2016/04/25/watermarking-images-with-opencv-and-python/
 def get_watermarked(pil_image: Image) -> Image:
@@ -305,18 +309,103 @@ class VideoColorizer:
             print(f"Using a render_factor based on existing B/W frames.")
         print(f"Colorizing {bw_count - color_count} frames with render_factor={render_factor}...")
 
+        color_filter = self.vis.filter.filters[0]
+        render_sz = render_factor * color_filter.render_base
+
+        def estimate_batch_size() -> int:
+            """Estimate a starting batch size from resolution and memory.
+
+            batch_size ≈ target_mem / (render_sz**2 * channels * dtype)
+            where target_mem is 50% of GPU RAM or 25% of system RAM on CPU.
+            """
+            frame_bytes = render_sz * render_sz * 3 * 4  # 3 channels, float32
+            if device.backend() == "cuda":
+                total = torch.cuda.get_device_properties(0).total_memory
+                target = total * 0.5
+            elif device.backend() == "cpu":
+                try:
+                    import psutil
+                    total = psutil.virtual_memory().available
+                    target = total * 0.25
+                except Exception:
+                    # Fallback for systems without psutil
+                    target = 512 * 1024 ** 2
+            else:
+                # DirectML or other backends don't expose memory; assume ~1GB
+                target = 1 * 1024 ** 3
+            # Cap at 32 to avoid runaway allocations; OOM handler will scale down.
+            return max(1, min(32, int(target / frame_bytes)))
+
+        batch_size = estimate_batch_size()
+        batch_files: List[str] = []
+
+        # Move the model to the selected backend and keep track of it.
+        color_filter.learn.model.to(device.torch_device())
+        color_filter.device = device.torch_device()
+
+        def process_batch(files: List[str]):
+            """Colorize a single batch of frame files."""
+            nonlocal batch_size
+            if not files:
+                return
+
+            origs, tensors = [], []
+            for name in files:
+                img_path = bwframes_folder / name
+                orig = Image.open(img_path).convert('RGB')
+                filt = color_filter._transform(orig)
+                model_ready = color_filter._get_model_ready_image(filt, render_sz)
+                t = pil2tensor(model_ready, np.float32)
+                # Keep preprocessing on CPU to avoid unsupported DirectML ops
+                t.div_(255)
+                t, _ = color_filter.norm((t, t), do_x=True)
+                origs.append(orig)
+                tensors.append(t)
+
+            # Stack then ship the entire batch to the model's device once
+            batch = torch.stack(tensors).to(color_filter.device, non_blocking=True)
+            try:
+                preds = color_filter.learn.pred_batch(
+                    ds_type=DatasetType.Valid, batch=(batch, batch), reconstruct=True
+                )
+            except RuntimeError as e:
+                msg = str(e).lower()
+                if "out of memory" in msg and len(files) > 1:
+                    # Free any cached GPU memory and retry with a smaller batch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                    batch_size = max(1, batch_size // 2)
+                    print(f"OOM detected, reducing batch size to {batch_size}")
+                    for i in range(0, len(files), batch_size):
+                        process_batch(files[i : i + batch_size])
+                    return
+                raise
+
+            for pred, orig, name in zip(preds, origs, files):
+                out = color_filter.denorm(pred.px, do_x=False)
+                out = image2np(out * 255).astype(np.uint8)
+                model_img = Image.fromarray(out)
+                raw = color_filter._unsquare(model_img, orig)
+                result = (
+                    color_filter._post_process(raw, orig) if post_process else raw
+                )
+                if watermarked:
+                    result = get_watermarked(result)
+                result.save(str(colorframes_folder / name))
+                result.close()
+                orig.close()
+
         for img in progress_bar(bw_images, master=bar):
             img_path = bwframes_folder / img
+            if not img_path.is_file() or img in existing_color_frames:
+                continue
+            batch_files.append(img)
+            if len(batch_files) == batch_size:
+                process_batch(batch_files)
+                batch_files = []
 
-            if os.path.isfile(str(img_path)):
-                # Keep previously colored frames so processing can resume after interruption
-                if img in existing_color_frames:
-                    #print(f"Skipping frame {img} (already colorized)")
-                    continue
-                color_image = self.vis.get_transformed_image(
-                    str(img_path), render_factor=21, post_process=post_process,watermarked=watermarked
-                )
-                color_image.save(str(colorframes_folder / img))
+        if batch_files:
+            process_batch(batch_files)
 
     def _build_video(self, source_path: Path) -> Path:
         colorized_path = self.result_folder / (
