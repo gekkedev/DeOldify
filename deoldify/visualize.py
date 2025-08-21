@@ -376,8 +376,11 @@ class VideoColorizer:
                 )
             except RuntimeError as e:
                 msg = str(e).lower()
+                # DirectML sometimes raises a bare RuntimeError with no message when
+                # memory is exhausted; treat that the same as any other OOM signal.
                 oom_signals = ["out of memory", "unbox expects dml", "privateuse1"]
-                if any(sig in msg for sig in oom_signals) and len(files) > 1:
+                is_oom = (not msg) or any(sig in msg for sig in oom_signals)
+                if is_oom and len(files) > 1:
                     # Free cached memory and retry with a smaller batch
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
