@@ -313,7 +313,7 @@ class VideoColorizer:
         render_sz = render_factor * color_filter.render_base
 
         # Start with a generous batch size on GPU/backends and scale down on OOM.
-        batch_size = 8 if device.backend() != "cpu" else 1
+        batch_size = 12 if device.backend() != "cpu" else 1
         batch_files: List[str] = []
 
         # Anchor the model on the active device once; tensors will move per batch.
