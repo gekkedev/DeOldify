@@ -159,14 +159,19 @@ special effects (as seen in "Metropolis").
 
 ![Metropolis Special FX](https://thumbs.gfycat.com/HeavyLoneBlowfish-size_restricted.gif)
 
-My best guess is that the models are learning some interesting rules about how to
+> My best guess is that the models are learning some interesting rules about how to
 colorize based on subtle cues present in the black and white images that I
 certainly wouldn't expect to exist.  This result leads to nicely deterministic and
 consistent results, and that means you don't have track model colorization
 decisions because they're not arbitrary.  Additionally, they seem remarkably
 robust so that even in moving scenes the renders are very consistent.
 
+**Observation:**
+Persistence of colors assigned to certain objects from one frame to the next heavily depends on the quality of the movie.
+Remastered movies have a higher chance of colors persisting across frames due to their higher *effective resolution*.
+
 ![Moving Scene Example](https://thumbs.gfycat.com/FamiliarJubilantAsp-size_restricted.gif)
+
 
 Other ways to stabilize video add up as well. First, generally speaking rendering
 at a higher resolution (higher render_factor) will increase stability of
