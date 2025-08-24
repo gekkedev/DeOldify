@@ -311,7 +311,7 @@ class VideoColorizer:
         color_filter = self.vis.filter.filters[0]
         render_sz = render_factor * color_filter.render_base
 
-        BATCH = 8  # Process multiple frames together for efficiency
+        BATCH = 20  # Process multiple frames together for efficiency
         batch_files: List[str] = []
 
         def process_batch(files: List[str]):
