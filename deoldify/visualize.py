@@ -365,11 +365,7 @@ class VideoColorizer:
         if batch_files:
             process_batch(batch_files)
 
-    def _build_video(self, source_path: Path) -> Path:
-        result_path = self.result_folder / source_path.name
-        if result_path.exists():
-            return logging.info(f"Skipping reassembly of existing video: {result_path} - delete the output file if you wish to have it recreated.")
-
+    def _build_video(self, source_path: Path, result_path: Path) -> Path:
         colorized_path = self.result_folder / (
             source_path.name.replace('.mp4', '_no_audio.mp4')
         )
@@ -438,6 +434,17 @@ class VideoColorizer:
                     + ' -loglevel error'
                 )
             logging.info('Video created here: ' + str(result_path))
+        
+        # delete intermediary files and folders (bwframes, colorframes, extracted AAC audio)
+        audio_file = Path(str(source_path).replace('.mp4', '.aac'))
+        if audio_file.exists():
+            audio_file.unlink()
+        if colorized_path.exists(): # most likely exists, but crashes aren't desired for this optional task
+            shutil.rmtree(str(colorized_path))
+        bw_path = self.bwframes_root / source_path.stem
+        if bw_path.exists():
+            shutil.rmtree(str(bw_path))
+
         return result_path
 
     def colorize_from_file_name(
@@ -448,12 +455,18 @@ class VideoColorizer:
             raise Exception(
                 'Video at path specfied (' + str(source_path) + ') could not be found.'
             )
+
+        # skip processing when the result (apparently) already exists
+        result_path = self.result_folder / source_path.name
+        if result_path.exists():
+            logging.info(f"Skipping existing video: {result_path} - delete the MP4 output file if you wish to have it reprocessed.")
+            return result_path
+
         self._extract_raw_frames(source_path)
         self._colorize_raw_frames(
             source_path, render_factor=render_factor, post_process=post_process, watermarked=watermarked, bar=bar
         )
-        return self._build_video(source_path)
-
+        return self._build_video(source_path, result_path)
 
 def get_video_colorizer(render_factor: int = 21) -> VideoColorizer:
     return get_stable_video_colorizer(render_factor=render_factor)
