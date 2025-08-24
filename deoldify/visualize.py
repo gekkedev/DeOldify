@@ -354,6 +354,7 @@ class VideoColorizer:
 
         for img in progress_bar(bw_images, master=bar):
             img_path = bwframes_folder / img
+            # Keep previously colored frames so processing can resume after interruption
             if not img_path.is_file() or img in existing_color_frames:
                 continue
             batch_files.append(img)
