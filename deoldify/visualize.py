@@ -436,9 +436,6 @@ class VideoColorizer:
             logging.info('Video created here: ' + str(result_path))
         
         # delete intermediary files and folders (bwframes, colorframes, extracted AAC audio)
-        audio_file = Path(str(source_path).replace('.mp4', '.aac'))
-        if audio_file.exists():
-            audio_file.unlink()
         if colorized_path.exists(): # most likely exists, but crashes aren't desired for this optional task
             shutil.rmtree(str(colorized_path))
         bw_path = self.bwframes_root / source_path.stem
