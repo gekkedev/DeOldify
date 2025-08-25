@@ -396,51 +396,48 @@ class VideoColorizer:
             logging.error('Errror while building output video.  Details: {0}'.format(e), exc_info=True)   
             raise e
 
-        # Skipping implemented above; deletion skipped to avoid loosing progress
-        # if result_path.exists():
-            #result_path.unlink()
-        else:
-            logging.info(f"Assembling video: {result_path}")
-            # making copy of non-audio version in case adding back audio doesn't apply or fails.
-            shutil.copyfile(str(colorized_path), str(result_path))
+        logging.info(f"Assembling video: {result_path}")
+        # making copy of the non-audio version in case adding back audio doesn't apply or fails.
+        shutil.copyfile(str(colorized_path), str(result_path))
 
-            # adding back sound here
-            audio_file = Path(str(source_path).replace('.mp4', '.aac'))
-            if audio_file.exists():
-                audio_file.unlink()
+        # adding back sound here
+        audio_file = Path(str(source_path).replace('.mp4', '.aac'))
+        if audio_file.exists():
+            audio_file.unlink() # delete the extracted AAC audio
 
+        os.system(
+            'ffmpeg -y -i "'
+            + str(source_path)
+            + '" -vn -acodec copy "'
+            + str(audio_file)
+            + '"'
+            + ' -hide_banner'
+            + ' -nostats'
+            + ' -loglevel error'
+        )
+
+        if audio_file.exists():
             os.system(
                 'ffmpeg -y -i "'
-                + str(source_path)
-                + '" -vn -acodec copy "'
+                + str(colorized_path)
+                + '" -i "'
                 + str(audio_file)
+                + '" -shortest -c:v copy -c:a aac -b:a 256k "'
+                + str(result_path)
                 + '"'
                 + ' -hide_banner'
                 + ' -nostats'
                 + ' -loglevel error'
             )
-
-            if audio_file.exists():
-                os.system(
-                    'ffmpeg -y -i "'
-                    + str(colorized_path)
-                    + '" -i "'
-                    + str(audio_file)
-                    + '" -shortest -c:v copy -c:a aac -b:a 256k "'
-                    + str(result_path)
-                    + '"'
-                    + ' -hide_banner'
-                    + ' -nostats'
-                    + ' -loglevel error'
-                )
-            logging.info('Video created here: ' + str(result_path))
+        logging.info('Video created here: ' + str(result_path))
         
-        # delete intermediary files and folders (bwframes, colorframes, extracted AAC audio)
-        if colorized_path.exists(): # most likely exists, but crashes aren't desired for this optional task
-            shutil.rmtree(str(colorized_path))
-        bw_path = self.bwframes_root / source_path.stem
-        if bw_path.exists():
-            shutil.rmtree(str(bw_path))
+        # delete intermediary files and folders (bwframes, colorframes)
+        colorized_frames_path = self.colorframes_root / source_path.stem
+        if colorized_frames_path.exists(): # most likely exists, but crashes aren't desired for this optional task
+            colorized_frames_path.unlink()
+        bw_frames_path = self.bwframes_root / source_path.stem
+        if bw_frames_path.exists():
+            shutil.rmtree(str(bw_frames_path))
 
         return result_path
 
