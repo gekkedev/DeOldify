@@ -434,10 +434,11 @@ class VideoColorizer:
         # delete intermediary files and folders (bwframes, colorframes)
         colorized_frames_path = self.colorframes_root / source_path.stem
         if colorized_frames_path.exists(): # most likely exists, but crashes aren't desired for this optional task
-            colorized_frames_path.unlink()
+            #colorized_frames_path.unlink()
+            shutil.rmtree(colorized_frames_path)
         bw_frames_path = self.bwframes_root / source_path.stem
         if bw_frames_path.exists():
-            shutil.rmtree(str(bw_frames_path))
+            shutil.rmtree(bw_frames_path)
 
         return result_path
 
